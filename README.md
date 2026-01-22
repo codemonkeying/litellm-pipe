@@ -54,7 +54,7 @@ LITELLM_API_BASE_URL	http://localhost:4000	Required. The full URL to your LiteLL
 
 🔧 Requirementspydantic>=2.0.0 requests>=2.0.0
 
-🌟 RepositoryFind the latest version and contribute at: https://github.com/tom-miles/litellm-pipe
+🌟 RepositoryFind the latest version and contribute at: https://github.com/codemonkeying/litellm-pipe
 
 📝 LicenseMIT License - Feel free to modify and distribute!
 
