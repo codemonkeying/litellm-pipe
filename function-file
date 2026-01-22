@@ -1,0 +1,176 @@
+"""
+title: LiteLLM Standalone Pipe (Corrected)
+author: Tom Miles
+version: 1.5.0
+license: MIT
+requirements: pydantic>=2.0.0, requests>=2.0.0, datetime
+
+Connects Open WebUI to a LiteLLM proxy. The model prefix is set directly in this file.
+"""
+
+import os
+import json
+import requests
+from datetime import datetime
+from typing import List, Union, Generator, Iterator, Dict, Optional
+from pydantic import BaseModel, Field
+
+
+class Pipe:
+    def __init__(self):
+        # --- EDIT THIS LINE TO CHANGE THE PREFIX ---
+        # This is the name that will appear in the model list.
+        self.name = "Lite"
+
+        self.type = "manifold"
+        self.id = "litellm_standalone"
+        self.valves = self.Valves()
+        self._cached_models = []
+        self._cache_timestamp = 0
+
+    class Valves(BaseModel):
+        # The display name setting has been removed to avoid confusion.
+        CACHE_DURATION_MINUTES: int = Field(
+            default=60, description="Cache model list for N minutes"
+        )
+        LITELLM_API_KEY: str = Field(
+            default=os.getenv("LITELLM_API_KEY", ""),
+            description="Your LiteLLM API key",
+        )
+        LITELLM_API_BASE_URL: str = Field(
+            default=os.getenv("LITELLM_API_BASE_URL", "http://localhost:4000"),
+            description="Your LiteLLM API base URL",
+        )
+
+    def pipes(self) -> List[dict]:
+        """Returns a list of available models from the LiteLLM proxy."""
+        self._cached_models = self._discover_litellm_models()
+
+        for model in self._cached_models:
+            model["id"] = f"{self.id}.{model.get('original_id', 'error')}"
+
+        return self._cached_models
+
+    def pipe(self, body: Dict, **kwargs) -> Union[str, Generator, Iterator]:
+        """Routes incoming requests to the LiteLLM handler."""
+        actual_model_id = body["model"].split(f"{self.id}.")[-1]
+        user = kwargs.get("__user__", None)
+
+        return self._handle_litellm(
+            body, kwargs.get("__event_emitter__"), actual_model_id, user
+        )
+
+    def _discover_litellm_models(self) -> List[dict]:
+        """Auto-discover models and formats their names for the UI."""
+        base_url = self.valves.LITELLM_API_BASE_URL.strip()
+        api_key = self.valves.LITELLM_API_KEY.strip()
+
+        if not api_key or not base_url:
+            return [{"original_id": "error", "name": ": URL or Key not configured"}]
+
+        try:
+            url = f"{base_url.rstrip('/')}/v1/models"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "User-Agent": "Open-WebUI-LiteLLM-Pipe/1.5.0",
+            }
+            response = requests.get(url, headers=headers, timeout=10)
+
+            if response.status_code != 200:
+                error_msg = f"API Error ({response.status_code})"
+                if response.status_code == 404:
+                    error_msg = "404: Check URL/Key"
+                elif response.status_code in [401, 403]:
+                    error_msg = "Auth Error"
+                return [{"original_id": "error", "name": f": {error_msg}"}]
+
+            model_data = response.json().get("data", [])
+            if not isinstance(model_data, list):
+                return [{"original_id": "error", "name": ": Invalid API Response"}]
+
+            models = [
+                {
+                    "original_id": m.get("id", ""),
+                    # Add a separator before the model name for clean formatting in the UI
+                    "name": f": {m.get('id', 'Unknown Model')}",
+                }
+                for m in model_data
+            ]
+
+            return models
+
+        except requests.exceptions.RequestException as e:
+            error_name = "Connection Error"
+            if "timed out" in str(e).lower():
+                error_name = "Connection Timed Out"
+            return [{"original_id": "error", "name": f": {error_name}"}]
+        except Exception:
+            return [{"original_id": "error", "name": ": Unknown Script Error"}]
+
+    def _handle_litellm(
+        self, body: Dict, event_emitter, model_id: str, user: Optional[dict]
+    ):
+        """Handles the actual API call to the LiteLLM proxy."""
+        base_url = self.valves.LITELLM_API_BASE_URL.strip().rstrip("/")
+        api_key = self.valves.LITELLM_API_KEY.strip()
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "Open-WebUI-LiteLLM-Pipe/1.5.0",
+        }
+
+        litellm_params = {"metadata": {"source": "open-webui-pipe-v1.5.0"}}
+        if user and "id" in user:
+            litellm_params["metadata"]["user_id"] = user["id"]
+
+        payload = {**body, "model": model_id, "litellm_params": litellm_params}
+        if user and "id" in user:
+            payload["user"] = user["id"]
+
+        try:
+            if event_emitter:
+                event_emitter(
+                    {
+                        "type": "status",
+                        "data": {
+                            "description": f"Processing {model_id}...",
+                            "done": False,
+                        },
+                    }
+                )
+            response = requests.post(
+                f"{base_url}/v1/chat/completions",
+                json=payload,
+                headers=headers,
+                stream=body.get("stream", False),
+                timeout=120,
+            )
+
+            if response.status_code != 200:
+                return f"LiteLLM Error ({response.status_code}): {response.text}"
+
+            return (
+                self._stream_sse_response(response)
+                if body.get("stream", False)
+                else response.json()["choices"][0]["message"]["content"]
+            )
+        except Exception as e:
+            return f"LiteLLM Connection Error: {e}"
+
+    def _stream_sse_response(
+        self, response: requests.Response
+    ) -> Generator[str, None, None]:
+        """Streams a Server-Sent Events (SSE) response."""
+        for line in response.iter_lines():
+            if line:
+                line = line.decode("utf-8")
+                if line.startswith("data: "):
+                    data = line[6:]
+                    if data.strip() == "[DONE]":
+                        break
+                    try:
+                        delta = json.loads(data)["choices"][0].get("delta", {})
+                        if "content" in delta and delta["content"] is not None:
+                            yield delta["content"]
+                    except (json.JSONDecodeError, IndexError, KeyError):
+                        continue
