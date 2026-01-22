@@ -174,3 +174,17 @@ class Pipe:
                             yield delta["content"]
                     except (json.JSONDecodeError, IndexError, KeyError):
                         continue
+#
+#
+# ## 🌟 Repository
+#
+# # Find the latest version and contribute at:
+# # https://github.com/codemonkeying/litellm-pipe
+#
+# ## 📝 License
+#
+# # MIT License - Feel free to modify and distribute!
+#
+# # ---
+#
+# # **Built by Tom Miles** | Version 1.5.0
