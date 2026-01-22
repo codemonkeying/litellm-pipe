@@ -1,58 +1,61 @@
-Codemaster
-Thought a second
-
-Of course. A good README.md is essential for any repository.
-
-Here is a complete README file tailored for your litellm-pipe repo. It explains what the script does, how to install it, and how to configure it, including the part about editing the file directly for the prefix.
-
-You can copy and paste this directly into a README.md file in your new GitHub repository.
 LiteLLM Pipe for Open WebUI
 
-A custom pipe for Open WebUI that connects to a LiteLLM proxy, making all of its models available in the chat interface with a clean, customizable prefix.
+A simple and robust pipe to connect Open WebUI with a LiteLLM proxy, featuring a clean, customizable prefix for all your models.
 
-This pipe is designed to be a simple, single-file solution for integrating a LiteLLM-managed model library into your Open WebUI instance.
-Screenshot
-Features
+This pipe acts as a bridge, allowing you to leverage LiteLLM's powerful model management and routing capabilities directly within the Open WebUI chat interface.
 
-    Auto-Discovery: Automatically fetches and lists all available models from your LiteLLM server.
-    Customizable Prefix: Easily change the display name for your models (e.g., "Lite:", "Proxy:", "Claude:") by editing one line in the script.
-    Simple Setup: Drop-in installation with configuration handled through the Open WebUI admin panel.
-    Robust Connection: Handles API keys, streaming, and provides clear error messages in the UI.
+✨ Key Features
 
-Installation
+    🔄 Auto-Discovery: Automatically fetches and lists all models available through your LiteLLM instance.
+    🖋️ Custom Prefix: Easily set a clean, professional prefix for your models (e.g., "Lite:", "Proxy:") by editing a single line in the script file.
+    ⚡ Smart Caching: Uses a 60-minute cache for the model list to ensure fast UI performance.
+    🛡️ Clear Error Reporting: Displays understandable errors in the model list if the connection to LiteLLM fails.
+    🧩 Simple Configuration: Requires only your LiteLLM API key and base URL to get started.
 
-    Place the File Place the litellm_pipe.py file into the pipes directory of your Open WebUI installation. The typical location is:
-    bash
+🚀 Supported Provider
 
-    /opt/open-webui/pipes/
+    LiteLLM Proxy: Connects to any LiteLLM instance, giving you access to the 100+ LLMs it supports.
 
-    Customize the Prefix (Optional) Open the litellm_pipe.py file with a text editor and change the self.name variable to your desired prefix.
+📦 Installation
+
+    Place the File Copy the litellm_pipe.py file into the pipes directory of your Open WebUI installation (e.g., /opt/open-webui/pipes/).
+    Set Your Prefix This is the most important step for branding. Open litellm_pipe.py and edit the self.name variable to your desired prefix.
     python
 
-    class Pipe:
-        def __init__(self):
-            # --- EDIT THIS LINE TO CHANGE THE PREFIX ---
-            # This is the name that will appear in the model list.
-            self.name = "Lite" 
+    # --- EDIT THIS LINE TO CHANGE THE PREFIX ---
+    self.name = "Lite" 
 
-    Restart Open WebUI For the new pipe to be loaded, you must restart your Open WebUI instance. If you are using Docker, run:
+    Restart Open WebUI For the pipe and your prefix to be loaded, you must restart your Open WebUI instance.
     bash
 
+    # If using Docker
     docker restart open-webui
 
-    Configure the Pipe
+    Configure API Access
         In Open WebUI, go to Admin Panel > Functions.
-        You should see "LiteLLM Pipe" in the list. Click the settings icon (sliders).
-        Fill in the following values in the Valves menu:
-            LITELLM_API_KEY: Your API key for the LiteLLM server.
-            LITELLM_API_BASE_URL: The full URL to your LiteLLM server (e.g., http://192.168.1.50:4000).
+        Click the settings icon on the LiteLLM_Pipe.
+        Enter your LiteLLM API Key and Base URL in the valves.
         Click Save.
 
-That's it! When you go to select a model in the chat interface, you will see your custom prefix followed by all the models available from your LiteLLM server.
-Author
+Enjoy your unified model library!
 
-    Tom Miles
+⚙️ Configuration The following settings are available in the pipe's Valves menu in the Open WebUI admin panel.
+Setting	Default	Description
+CACHE_DURATION_MINUTES	60	How long (in minutes) to cache the discovered model list.
+LITELLM_API_KEY	(None)	Required. Your API key for the LiteLLM server.
+LITELLM_API_BASE_URL	http://localhost:4000	Required. The full URL to your LiteLLM server.
 
-License
+🎯 Why Use This Pipe?
 
-This project is licensed under the MIT License.
+    Unified Access: Bring all models managed by LiteLLM into a single, clean interface.
+    Zero Maintenance: Let LiteLLM handle model updates; the pipe will discover them automatically.
+    Simplify Your Setup: Avoids the need for multiple, provider-specific pipes.
+    Clean & Professional: A custom prefix keeps your model list organized and easy to navigate.
+
+🔧 Requirementspydantic>=2.0.0 requests>=2.0.0
+
+🌟 RepositoryFind the latest version and contribute at: https://github.com/tom-miles/litellm-pipe
+
+📝 LicenseMIT License - Feel free to modify and distribute!
+
+Built by Tom Miles | Version 1.5.0
